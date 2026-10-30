@@ -60,3 +60,25 @@ async def idle_scroll(page: Page) -> None:
     for _ in range(random.randint(1, 3)):
         await page.mouse.wheel(0, random.uniform(120, 500))
         await pause(0.4, 1.2)
+
+
+def reading_time(text: str | None) -> tuple[float, float]:
+    """A (low, high) pause range for reading `text`, at roughly 5 words per second, capped."""
+    seconds = min(len((text or "").split()) / 5, 12)
+    return 0.8 + seconds * 0.6, 1.5 + seconds
+
+
+async def scroll_to(page: Page, target: Locator) -> None:
+    """Scroll in uneven wheel steps until the element sits in the upper part of the viewport."""
+    viewport_height = await page.evaluate("window.innerHeight")
+    for _ in range(40):
+        box = await target.bounding_box()
+        if box is None:
+            await page.mouse.wheel(0, random.uniform(200, 400))
+        else:
+            offset = box["y"] - viewport_height * random.uniform(0.15, 0.35)
+            if abs(offset) < viewport_height * 0.2:
+                return
+            step = max(-450, min(450, offset)) * random.uniform(0.7, 1.0)
+            await page.mouse.wheel(0, step)
+        await pause(0.1, 0.4)
