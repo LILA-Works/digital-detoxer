@@ -2,10 +2,13 @@
 name = "digital-detoxer"
 version = "0.0.1"
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "click",
+    "playwright",
+]
 
 [project.scripts]
-detox = "detox.src.main:main"
+detox = "detox.src.cli:main"
 
 [dependency-groups]
 dev = ["black", "ruff", "basedpyright"]

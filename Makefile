@@ -1,4 +1,4 @@
-.PHONY: setup update upgrade
+.PHONY: setup update upgrade cli test-browser
 
 ########################################
 # Setup
@@ -21,7 +21,11 @@ upgrade:
 ########################################
 
 cli:
-	uv run detox
+	uv run detox --help
+
+# Opens a page and keeps the browser open until a key is pressed. Optional: make test-browser URL=https://example.com
+test-browser:
+	uv run detox test-browser --keep-open $(if $(URL),--url $(URL))
 
 ########################################
 # CI
