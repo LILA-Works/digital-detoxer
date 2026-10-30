@@ -1,4 +1,4 @@
-.PHONY: setup add-password update upgrade cli test-browser crawl-reddit
+.PHONY: setup add-password list-passwords remove-password update upgrade cli test-browser crawl-reddit
 
 ########################################
 # Setup
@@ -25,8 +25,17 @@ upgrade:
 #   Master password: 
 #   Repeat for confirmation: 
 #   Password for alice on reddit.com: 
+# The master password is remembered in the macOS login keychain; pass NO_REMEMBER=1 to skip that.
 add-password:
-	uv run detox add-password --account $(ACCOUNT) $(if $(SERVER),--server $(SERVER))
+	uv run detox add-password --account $(ACCOUNT) --server $(SERVER) $(if $(NO_REMEMBER),--no-remember)
+
+# Deletes a saved login from the vault (asks to confirm). Requires ACCOUNT and SERVER. e.g. make remove-password SERVER=reddit.com ACCOUNT=alice
+remove-password:
+	uv run detox remove-password --account $(ACCOUNT) --server $(SERVER)
+
+# Lists saved logins (site and username only, never the passwords).
+list-passwords:
+	uv run detox list-passwords
 
 ########################################
 # App via CLI

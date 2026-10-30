@@ -4,6 +4,7 @@ version = "0.0.1"
 requires-python = ">=3.13"
 dependencies = [
     "click",
+    "keyring>=25.7.0",
     "playwright",
     "pykeepass>=4.2.0",
 ]

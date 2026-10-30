@@ -5,7 +5,8 @@ from playwright.async_api import BrowserContext, Page
 
 from detox.src import human
 from detox.src.browser import launch_browser
-from detox.src.vault import VaultError, fetch_credentials
+from detox.src.commands.utils.unlock import with_vault
+from detox.src.vault import fetch_credentials
 
 REDDIT_URL = "https://www.reddit.com/"
 LOGIN_URL = "https://www.reddit.com/login/"
@@ -20,11 +21,9 @@ async def is_logged_in(context: BrowserContext) -> bool:
 
 
 async def log_in(page: Page, account: str) -> None:
-    master = click.prompt("Vault master password", hide_input=True)
-    try:
-        creds = await asyncio.to_thread(fetch_credentials, REDDIT_SERVER, account, master)
-    except VaultError as e:
-        raise click.ClickException(str(e)) from e
+    creds = await asyncio.to_thread(
+        with_vault, lambda master: fetch_credentials(REDDIT_SERVER, account, master)
+    )
 
     await human.pause(1.0, 2.5)
     await human.click(page, page.locator('input[name="username"]').first)
