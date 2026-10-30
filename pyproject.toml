@@ -1,0 +1,40 @@
+[project]
+name = "digital-detoxer"
+version = "0.0.1"
+requires-python = ">=3.13"
+dependencies = []
+
+[project.scripts]
+detox = "detox.src.main:main"
+
+[dependency-groups]
+dev = ["black", "ruff", "basedpyright"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.black]
+line-length = 100
+target-version = ["py313"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["detox"]
+
+# Pylance reads this too, so the editor and `make typecheck` agree.
+[tool.pyright]
+typeCheckingMode = "standard"
+pythonVersion = "3.13"
+include = ["detox"]
+exclude = ["**/__pycache__", "**/.venv", "**/.pytest_cache", "**/.ruff_cache"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["detox"]
+exclude = ["detox/tst"]
