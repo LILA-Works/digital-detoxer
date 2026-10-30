@@ -38,7 +38,7 @@ async def log_in(page: Page, account: str) -> None:
     await page.keyboard.press("Enter")
 
 
-async def ensure_logged_in(context: BrowserContext, page: Page, vault: str, account: str) -> None:
+async def ensure_logged_in(context: BrowserContext, page: Page, account: str) -> None:
     await page.goto(REDDIT_URL)
     await human.pause(2.0, 4.0)
     if await is_logged_in(context):
