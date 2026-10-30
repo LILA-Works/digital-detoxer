@@ -1,4 +1,4 @@
-.PHONY: setup add-password list-passwords remove-password update upgrade cli test-browser crawl-reddit
+.PHONY: setup add-password list-passwords remove-password update upgrade cli test-browser crawl-reddit migrate backward migration
 
 ########################################
 # Setup
@@ -16,6 +16,18 @@ update:
 # For upgrading all dependencies to their latest versions. Bumps all versions to latest.
 upgrade:
 	uv sync --all-packages --group dev --upgrade
+
+# Applies all database migrations to the SQLite db at .data/reddit/reddit.db.
+migrate:
+	uv run alembic upgrade head
+
+# Rolls back the most recent database migration. Optional: make backward STEPS=2 (default 1)
+backward:
+	uv run alembic downgrade -$(or $(STEPS),1)
+
+# Generates a migration from model changes. Requires MSG. e.g. make migration MSG="add posts table"
+migration:
+	uv run alembic revision --autogenerate -m "$(MSG)"
 
 # Saves a login into the encrypted password vault (created on first use). Requires ACCOUNT and SERVER. e.g. make add-password SERVER=reddit.com ACCOUNT=alice
 # Password is managed by https://keepassxc.org/

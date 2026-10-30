@@ -1,24 +1,30 @@
 import asyncio
 import json
 import re
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import click
 from playwright.async_api import BrowserContext, Locator, Page
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError
+from sqlmodel import Session, select
 
 from detox.src import human
 from detox.src.browser import launch_browser
 from detox.src.commands.utils.unlock import with_vault
+from detox.src.db import get_engine
+from detox.src.db.reddit_post import RedditPost
 from detox.src.vault import fetch_credentials
 
 SUBREDDITS: list[str] = [
     "https://www.reddit.com/r/ValueInvesting/",
 ]
 POSTS_PER_SUBREDDIT = 10
+# Once every post in view is already known, keep going down the listing until posts are this old.
+MAX_POST_AGE = timedelta(days=5)
 COMMENTS_PER_POST = 10
 OUTPUT_DIR = Path(".data/reddit")
+POSTS_DIR = OUTPUT_DIR / "posts"
 
 REDDIT_URL = "https://www.reddit.com/"
 LOGIN_URL = "https://www.reddit.com/login/"
@@ -93,6 +99,7 @@ POST_SUMMARY_JS = """e => ({
     author: e.getAttribute('author'),
     score: Number(e.getAttribute('score')),
     permalink: e.getAttribute('permalink'),
+    created: e.getAttribute('created-timestamp'),
 })"""
 
 # Runs in the page against the `shreddit-post` of the post being viewed.
@@ -148,14 +155,14 @@ async def read_comments(page: Page) -> list[dict]:
     return sorted(read, key=lambda c: c["score"], reverse=True)
 
 
-async def crawl_post(page: Page, post: Locator) -> dict:
+async def crawl_post(page: Page, post: Locator, summary: dict) -> dict:
     """Click into a post, read it and its top comments, then go back to the listing."""
-    summary = await post.evaluate(POST_SUMMARY_JS)
     click.echo(f"  {(summary['title'] or '')[:70]}")
     result = {
         "title": summary["title"],
         "author": summary["author"],
         "score": summary["score"],
+        "time_posted": summary["created"],
         "url": absolute(summary["permalink"]),
         "selftext": None,
         "external_url": None,
@@ -190,7 +197,46 @@ async def go_back_to_listing(page: Page) -> None:
     await human.pause(1.0, 2.5)
 
 
-async def crawl_subreddit(page: Page, url: str) -> dict:
+def parse_timestamp(value: str | None) -> datetime | None:
+    try:
+        return datetime.fromisoformat(value) if value else None
+    except ValueError:
+        return None
+
+
+def is_known(url: str) -> bool:
+    with Session(get_engine()) as session:
+        return session.exec(select(RedditPost.id).where(RedditPost.url == url)).first() is not None
+
+
+def save_post(subreddit: str, post: dict) -> None:
+    """Metadata goes into the db (updated if the post was crawled before), raw data into JSON."""
+    url = post["url"]
+    if not url:
+        return
+    fields = {
+        "title": post["title"],
+        "author": post["author"],
+        "score": post["score"],
+        "time_posted": parse_timestamp(post["time_posted"]),
+    }
+    with Session(get_engine()) as session:
+        row = session.exec(select(RedditPost).where(RedditPost.url == url)).first()
+        if row is None:
+            row = RedditPost(url=url, **fields)
+        else:
+            for key, value in fields.items():
+                setattr(row, key, value)
+        session.add(row)
+        session.commit()
+        post_id = row.post_id
+
+    POSTS_DIR.mkdir(parents=True, exist_ok=True)
+    raw = {"subreddit": subreddit, "post_id": post_id, **post}
+    (POSTS_DIR / f"{post_id}.json").write_text(json.dumps(raw, indent=2, ensure_ascii=False))
+
+
+async def crawl_subreddit(page: Page, url: str) -> int:
     name = subreddit_name(url)
     click.echo(f"Crawling r/{name}")
     await human.pause(2.0, 5.0)
@@ -199,28 +245,37 @@ async def crawl_subreddit(page: Page, url: str) -> dict:
         await page.wait_for_selector(POST_SELECTOR, timeout=15_000)
     except PlaywrightTimeoutError:
         click.echo(f"  no posts found for r/{name}, skipping.", err=True)
-        return {"subreddit": name, "url": url, "posts": []}
+        return 0
     await human.pause(1.5, 3.5)
 
-    posts = []
-    for i in range(POSTS_PER_SUBREDDIT):
+    saved = 0
+    i = 0
+    cutoff = datetime.now(UTC) - MAX_POST_AGE
+    while saved < POSTS_PER_SUBREDDIT:
         await scroll_until(page, POST_SELECTOR, i + 1)
         listing = page.locator(POST_SELECTOR)
         if await listing.count() <= i:
             break
         post = listing.nth(i)
-        posts.append(await crawl_post(page, post))
-        if i < POSTS_PER_SUBREDDIT - 1:
+        i += 1
+        summary = await post.evaluate(POST_SUMMARY_JS)
+        posted = parse_timestamp(summary["created"])
+        if posted and posted < cutoff:
+            click.echo(f"  reached posts older than {MAX_POST_AGE.days} days, stopping.")
+            break
+        post_url = absolute(summary["permalink"])
+        if post_url and is_known(post_url):
+            click.echo(f"  already crawled, skipping: {(summary['title'] or '')[:70]}")
+            continue
+        save_post(name, await crawl_post(page, post, summary))
+        saved += 1
+        if saved < POSTS_PER_SUBREDDIT:
             await go_back_to_listing(page)
-    return {"subreddit": name, "url": url, "posts": posts}
+    return saved
 
 
-async def crawl(page: Page) -> Path:
-    results = [await crawl_subreddit(page, url) for url in SUBREDDITS]
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    path = OUTPUT_DIR / f"crawl-{datetime.now():%Y%m%d-%H%M%S}.json"
-    path.write_text(json.dumps(results, indent=2, ensure_ascii=False))
-    return path
+async def crawl(page: Page) -> int:
+    return sum([await crawl_subreddit(page, url) for url in SUBREDDITS])
 
 
 @click.command("crawl-reddit")
@@ -235,8 +290,8 @@ def crawl_reddit(account: str, keep_open: bool) -> None:
         async with launch_browser() as context:
             page = context.pages[0] if context.pages else await context.new_page()
             await ensure_logged_in(context, page, account)
-            path = await crawl(page)
-            click.echo(f"Saved {path}")
+            saved = await crawl(page)
+            click.echo(f"Saved {saved} posts: metadata in the db, raw data in {POSTS_DIR}/")
             if keep_open:
                 await asyncio.to_thread(click.pause, "Browser open. Press any key to close...")
 
