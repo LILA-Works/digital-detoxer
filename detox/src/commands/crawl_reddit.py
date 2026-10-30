@@ -304,7 +304,8 @@ def crawl_reddit(account: str, keep_open: bool) -> None:
             saved = await crawl(page)
             elapsed = time.perf_counter() - started
             click.echo(
-                f"Saved {saved} posts in {elapsed:.1f}s: metadata in the db, raw data in {POSTS_DIR}/"
+                f"Saved {saved} posts in {elapsed:.1f}s: metadata in the db, "
+                f"raw data in {POSTS_DIR}/"
             )
             if keep_open:
                 # click.pause blocks, so run it in a thread to keep the event loop (and the browser)

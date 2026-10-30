@@ -5,6 +5,8 @@ from sqlmodel import SQLModel
 
 from detox.src.db import DB_URL, get_engine
 from detox.src.db.reddit_post import RedditPost  # noqa: F401  (registers the table on the metadata)
+from detox.src.db.reddit_summary import RedditSummary  # noqa: F401
+from detox.src.db.update import Update  # noqa: F401
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

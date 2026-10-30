@@ -41,7 +41,7 @@ typeCheckingMode = "standard"
 pythonVersion = "3.13"
 include = ["detox"]
 exclude = [
-  "detox/src/migrations/versions",
+  "detox/src/db/migrations/versions",
   "**/__pycache__",
   "**/.venv",
   "**/.pytest_cache",

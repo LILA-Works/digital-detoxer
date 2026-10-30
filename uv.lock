@@ -291,12 +291,12 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "alembic", specifier = ">=1.20.1" },
+    { name = "alembic" },
     { name = "click" },
-    { name = "keyring", specifier = ">=25.7.0" },
+    { name = "keyring" },
     { name = "playwright" },
-    { name = "pykeepass", specifier = ">=4.2.0" },
-    { name = "sqlmodel", specifier = ">=0.0.48" },
+    { name = "pykeepass" },
+    { name = "sqlmodel" },
 ]
 
 [package.metadata.requires-dev]

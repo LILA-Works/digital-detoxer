@@ -7,7 +7,7 @@ from sqlmodel import Field, SQLModel
 class RedditPost(SQLModel, table=True):
     """Metadata about a crawled post. The post content itself is deliberately not stored."""
 
-    __tablename__ = "reddit_post"  # pyright: ignore[reportAssignmentType]
+    __tablename__ = "reddit_posts"  # pyright: ignore[reportAssignmentType]
 
     id: int | None = Field(default=None, primary_key=True)
     title: str
