@@ -1,9 +1,9 @@
 import click
 
-from detox.src.commands.add_password import add_password
 from detox.src.commands.crawl_reddit import crawl_reddit
-from detox.src.commands.list_passwords import list_passwords
-from detox.src.commands.remove_password import remove_password_command
+from detox.src.commands.password.add_password import add_password
+from detox.src.commands.password.list_passwords import list_passwords
+from detox.src.commands.password.remove_password import remove_password_command
 from detox.src.commands.test_browser import test_browser
 
 
