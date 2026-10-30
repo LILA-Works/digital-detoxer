@@ -62,7 +62,7 @@ test-browser:
 
 # Logs into Reddit if needed. Requires ACCOUNT, whose password must be in the vault (see add-password). e.g. make crawl-reddit ACCOUNT=alice
 crawl-reddit:
-	uv run detox crawl-reddit --keep-open --account $(ACCOUNT)
+	uv run detox crawl-reddit --account $(ACCOUNT)
 
 ########################################
 # CI

@@ -1,7 +1,9 @@
 {
   "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
   // Any new python packages need to be added here for the server to pick it up
-  "python.analysis.extraPaths": [],
+  "python.analysis.extraPaths": [
+    "${workspaceFolder}/detox/src"
+  ],
   "[python]": {
     "editor.defaultFormatter": "ms-python.black-formatter",
     "editor.formatOnSave": true,

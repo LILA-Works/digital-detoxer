@@ -1,6 +1,7 @@
 import asyncio
 import json
 import re
+import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -19,10 +20,12 @@ from detox.src.vault import fetch_credentials
 SUBREDDITS: list[str] = [
     "https://www.reddit.com/r/ValueInvesting/",
 ]
-POSTS_PER_SUBREDDIT = 10
+POSTS_PER_SUBREDDIT = 8
 # Once every post in view is already known, keep going down the listing until posts are this old.
 MAX_POST_AGE = timedelta(days=5)
-COMMENTS_PER_POST = 10
+COMMENTS_PER_POST = 5
+# Posts with a score at or below this are skipped without being opened.
+MIN_POST_SCORE = 10
 OUTPUT_DIR = Path(".data/reddit")
 POSTS_DIR = OUTPUT_DIR / "posts"
 
@@ -263,14 +266,21 @@ async def crawl_subreddit(page: Page, url: str) -> int:
         if posted and posted < cutoff:
             click.echo(f"  reached posts older than {MAX_POST_AGE.days} days, stopping.")
             break
+        if not summary["score"] >= MIN_POST_SCORE:
+            click.echo(
+                f"  score {summary['score']} too low, skipping: {(summary['title'] or '')[:70]}"
+            )
+            continue
         post_url = absolute(summary["permalink"])
         if post_url and is_known(post_url):
             click.echo(f"  already crawled, skipping: {(summary['title'] or '')[:70]}")
             continue
+        started = time.perf_counter()
         save_post(name, await crawl_post(page, post, summary))
         saved += 1
         if saved < POSTS_PER_SUBREDDIT:
             await go_back_to_listing(page)
+        click.echo(f"  took {time.perf_counter() - started:.1f}s")
     return saved
 
 
@@ -288,11 +298,17 @@ def crawl_reddit(account: str, keep_open: bool) -> None:
 
     async def run() -> None:
         async with launch_browser() as context:
+            started = time.perf_counter()
             page = context.pages[0] if context.pages else await context.new_page()
             await ensure_logged_in(context, page, account)
             saved = await crawl(page)
-            click.echo(f"Saved {saved} posts: metadata in the db, raw data in {POSTS_DIR}/")
+            elapsed = time.perf_counter() - started
+            click.echo(
+                f"Saved {saved} posts in {elapsed:.1f}s: metadata in the db, raw data in {POSTS_DIR}/"
+            )
             if keep_open:
+                # click.pause blocks, so run it in a thread to keep the event loop (and the browser)
+                # responsive.
                 await asyncio.to_thread(click.pause, "Browser open. Press any key to close...")
 
     asyncio.run(run())

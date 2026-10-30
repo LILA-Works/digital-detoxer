@@ -64,7 +64,7 @@ async def idle_scroll(page: Page) -> None:
 
 def reading_time(text: str | None) -> tuple[float, float]:
     """A (low, high) pause range for reading `text`, at roughly 5 words per second, capped."""
-    seconds = min(len((text or "").split()) / 5, 12)
+    seconds = min(len((text or "").split()) / 6, 8)
     return 0.8 + seconds * 0.6, 1.5 + seconds
 
 
