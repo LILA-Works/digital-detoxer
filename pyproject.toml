@@ -5,6 +5,7 @@ requires-python = ">=3.13"
 dependencies = [
     "click",
     "playwright",
+    "pykeepass>=4.2.0",
 ]
 
 [project.scripts]

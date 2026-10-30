@@ -1,4 +1,4 @@
-.PHONY: setup update upgrade cli test-browser
+.PHONY: setup add-password update upgrade cli test-browser crawl-reddit
 
 ########################################
 # Setup
@@ -7,6 +7,7 @@
 # For setting up the development environment. Installs the dependencies without upgrading them.
 setup:
 	uv sync --all-packages --group dev --frozen
+	mkdir -p .data/vault
 
 # For when updating a new dependency. Updates the lock file to the latest versions.
 update:
@@ -15,6 +16,17 @@ update:
 # For upgrading all dependencies to their latest versions. Bumps all versions to latest.
 upgrade:
 	uv sync --all-packages --group dev --upgrade
+
+# Saves a login into the encrypted password vault (created on first use). Requires ACCOUNT and SERVER. e.g. make add-password SERVER=reddit.com ACCOUNT=alice
+# Password is managed by https://keepassxc.org/
+# First time running this command will lead a prompt for providing a master password.
+#   $ uv run detox add-password --account alice --server reddit.com
+#   No vault yet. Choose a master password for the new one.
+#   Master password: 
+#   Repeat for confirmation: 
+#   Password for alice on reddit.com: 
+add-password:
+	uv run detox add-password --account $(ACCOUNT) $(if $(SERVER),--server $(SERVER))
 
 ########################################
 # App via CLI
@@ -26,6 +38,10 @@ cli:
 # Opens a page and keeps the browser open until a key is pressed. Optional: make test-browser URL=https://example.com
 test-browser:
 	uv run detox test-browser --keep-open $(if $(URL),--url $(URL))
+
+# Logs into Reddit if needed. Requires ACCOUNT, whose password must be in the vault (see add-password). e.g. make crawl-reddit ACCOUNT=alice
+crawl-reddit:
+	uv run detox crawl-reddit --keep-open --account $(ACCOUNT)
 
 ########################################
 # CI

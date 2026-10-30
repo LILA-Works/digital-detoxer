@@ -221,3 +221,9 @@ __marimo__/
 
 # Playwright persistent browser profile
 .browser-profile/
+
+# Local data. The password vault database is never committed; only its README is.
+.data/*
+!.data/vault/
+.data/vault/*
+!.data/vault/README.md
