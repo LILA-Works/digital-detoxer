@@ -1,4 +1,4 @@
-.PHONY: setup add-password list-passwords remove-password update upgrade cli test-browser crawl-reddit migrate backward migration
+.PHONY: setup add-password list-passwords remove-password update upgrade cli test-browser crawl-reddit summarize-reddit db migrate backward migration
 
 ########################################
 # Setup
@@ -53,6 +53,10 @@ list-passwords:
 # App via CLI
 ########################################
 
+# Opens the sqlite3 shell on the Reddit db, with column headers and aligned output.
+db:
+	sqlite3 -header -column .data/reddit/reddit.db
+
 cli:
 	uv run detox --help
 
@@ -60,9 +64,13 @@ cli:
 test-browser:
 	uv run detox test-browser --keep-open $(if $(URL),--url $(URL))
 
-# Logs into Reddit if needed. Requires ACCOUNT, whose password must be in the vault (see add-password). e.g. make crawl-reddit ACCOUNT=alice
+# Logs into Reddit if needed. Requires ACCOUNT, whose password must be in the vault (see add-password). e.g. make crawl-reddit ACCOUNT=alice. Optional: POSTS_PER_SUBREDDIT=5 (default 3)
 crawl-reddit:
-	uv run detox crawl-reddit --account $(ACCOUNT)
+	uv run detox crawl-reddit --account $(ACCOUNT) $(if $(POSTS_PER_SUBREDDIT),--posts-per-subreddit $(POSTS_PER_SUBREDDIT))
+
+# Summarizes the latest unsummarized posts, then prints a notification with an update on the interesting ones. Requires a running Ollama with the model set in llm.py. Optional: NO_NOTIFY=1, and RESUMMARIZE=1 to overwrite the latest posts' existing summaries (e.g. after a prompt change). e.g. make summarize-reddit RESUMMARIZE=1
+summarize-reddit:
+	uv run detox summarize-reddit $(if $(NO_NOTIFY),--no-notify) $(if $(RESUMMARIZE),--resummarize)
 
 ########################################
 # CI

@@ -20,7 +20,6 @@ from detox.src.vault import fetch_credentials
 SUBREDDITS: list[str] = [
     "https://www.reddit.com/r/ValueInvesting/",
 ]
-POSTS_PER_SUBREDDIT = 8
 # Once every post in view is already known, keep going down the listing until posts are this old.
 MAX_POST_AGE = timedelta(days=5)
 COMMENTS_PER_POST = 5
@@ -239,7 +238,7 @@ def save_post(subreddit: str, post: dict) -> None:
     (POSTS_DIR / f"{post_id}.json").write_text(json.dumps(raw, indent=2, ensure_ascii=False))
 
 
-async def crawl_subreddit(page: Page, url: str) -> int:
+async def crawl_subreddit(page: Page, url: str, posts_per_subreddit: int) -> int:
     name = subreddit_name(url)
     click.echo(f"Crawling r/{name}")
     await human.pause(2.0, 5.0)
@@ -254,7 +253,7 @@ async def crawl_subreddit(page: Page, url: str) -> int:
     saved = 0
     i = 0
     cutoff = datetime.now(UTC) - MAX_POST_AGE
-    while saved < POSTS_PER_SUBREDDIT:
+    while saved < posts_per_subreddit:
         await scroll_until(page, POST_SELECTOR, i + 1)
         listing = page.locator(POST_SELECTOR)
         if await listing.count() <= i:
@@ -278,20 +277,27 @@ async def crawl_subreddit(page: Page, url: str) -> int:
         started = time.perf_counter()
         save_post(name, await crawl_post(page, post, summary))
         saved += 1
-        if saved < POSTS_PER_SUBREDDIT:
+        if saved < posts_per_subreddit:
             await go_back_to_listing(page)
         click.echo(f"  took {time.perf_counter() - started:.1f}s")
     return saved
 
 
-async def crawl(page: Page) -> int:
-    return sum([await crawl_subreddit(page, url) for url in SUBREDDITS])
+async def crawl(page: Page, posts_per_subreddit: int) -> int:
+    return sum([await crawl_subreddit(page, url, posts_per_subreddit) for url in SUBREDDITS])
 
 
 @click.command("crawl-reddit")
 @click.option("--account", required=True, help="Reddit username whose password is in the vault.")
+@click.option(
+    "--posts-per-subreddit",
+    type=click.IntRange(min=1),
+    default=3,
+    show_default=True,
+    help="How many new posts to crawl in each subreddit.",
+)
 @click.option("--keep-open", is_flag=True, help="Keep the browser open until you press a key.")
-def crawl_reddit(account: str, keep_open: bool) -> None:
+def crawl_reddit(account: str, posts_per_subreddit: int, keep_open: bool) -> None:
     """Open Reddit, log in via the vault if needed, then crawl the configured subreddits."""
     if not SUBREDDITS:
         raise click.ClickException("SUBREDDITS is empty. Add URLs at the top of the file.")
@@ -301,7 +307,7 @@ def crawl_reddit(account: str, keep_open: bool) -> None:
             started = time.perf_counter()
             page = context.pages[0] if context.pages else await context.new_page()
             await ensure_logged_in(context, page, account)
-            saved = await crawl(page)
+            saved = await crawl(page, posts_per_subreddit)
             elapsed = time.perf_counter() - started
             click.echo(
                 f"Saved {saved} posts in {elapsed:.1f}s: metadata in the db, "

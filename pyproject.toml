@@ -6,6 +6,7 @@ dependencies = [
   "alembic",
   "click",
   "keyring",
+  "ollama",
   "playwright",
   "pykeepass",
   "sqlmodel",
